@@ -1,0 +1,11 @@
+# Normalize line endings: LF in the repo and on checkout, so the Windows and
+# Linux builds stay consistent. Windows batch files must keep CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+
+# Binary assets (never touch line endings)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
