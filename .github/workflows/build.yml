@@ -74,12 +74,32 @@ jobs:
           if-no-files-found: error
 
       # --- Tag: signed release with installer, updater artifacts, and latest.json ---
+      - name: Extract changelog for this tag
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        id: changelog
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $body = @()
+          $capture = $false
+          foreach ($line in Get-Content CHANGELOG.md) {
+            if ($line -match "^##\s+$([regex]::Escape($tag))\b") { $capture = $true; continue }
+            elseif ($capture -and $line -match "^##\s+") { break }
+            elseif ($capture) { $body += $line }
+          }
+          $text = ($body -join "`n").Trim()
+          if (-not $text) { $text = "See the assets below." }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "body<<CHANGELOG_EOF"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $text
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "CHANGELOG_EOF"
+
       - name: Build and publish release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: tauri-apps/tauri-action@v0
         with:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
 

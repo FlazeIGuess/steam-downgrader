@@ -150,6 +150,7 @@ function App() {
   const [updateStage, setUpdateStage] = useState<"checking" | "available" | "downloading" | "installing" | "uptodate" | "error">("uptodate");
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // Sidebar
   const [sidebarTab, setSidebarTab] = useState<"games" | "rollbacks">("games");
@@ -1179,7 +1180,14 @@ function App() {
                     <strong>Version {update.version}</strong> is available
                     {update.currentVersion ? <span className="update-cur"> (you have {update.currentVersion})</span> : null}.
                   </p>
-                  {update.body ? <div className="update-notes">{update.body}</div> : null}
+                  {update.body ? (
+                    <div className="update-changelog">
+                      <button className="update-notes-toggle" onClick={() => setNotesOpen((o) => !o)}>
+                        <span className="update-notes-caret">{notesOpen ? "▾" : "▸"}</span> what&apos;s new in v{update.version}
+                      </button>
+                      {notesOpen && <div className="update-notes">{update.body}</div>}
+                    </div>
+                  ) : null}
 
                   {updateBusy ? (
                     <div className="update-progress">
