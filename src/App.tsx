@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 
@@ -142,6 +144,13 @@ function App() {
     { title: string; message: string; confirmLabel: string; danger: boolean; resolve: (v: boolean) => void } | null
   >(null);
 
+  // Update watcher (custom UI over the Tauri updater plugin)
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateStage, setUpdateStage] = useState<"checking" | "available" | "downloading" | "installing" | "uptodate" | "error">("uptodate");
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
   // Sidebar
   const [sidebarTab, setSidebarTab] = useState<"games" | "rollbacks">("games");
   const [installed, setInstalled] = useState<InstalledGame[]>([]);
@@ -212,6 +221,8 @@ function App() {
   useEffect(() => { consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight); }, [log]);
   // Load the owned-games list once signed in (reveals not-installed games).
   useEffect(() => { if (account) loadOwned(); }, [account]);
+  // Silently check for an app update on startup.
+  useEffect(() => { checkForUpdate(false); }, []);
   // Scroll the docs modal to a requested section.
   useEffect(() => {
     if (!docsOpen || !docsSection) return;
@@ -311,6 +322,53 @@ function App() {
     confirmState?.resolve(result);
     setConfirmState(null);
   }
+
+  // --- Update watcher -------------------------------------------------------
+  /** Check the release endpoint. `manual` opens the dialog even when up to date. */
+  async function checkForUpdate(manual: boolean) {
+    setUpdateError(null);
+    if (manual) { setUpdateStage("checking"); setUpdateOpen(true); }
+    try {
+      const u = await check();
+      if (u) {
+        setUpdate(u);
+        setUpdateStage("available");
+        setUpdateOpen(true);
+      } else {
+        setUpdate(null);
+        setUpdateStage("uptodate");
+      }
+    } catch (e) {
+      setUpdateError(String(e));
+      setUpdateStage("error");
+      // Only surface check failures when the user asked explicitly.
+      if (!manual) setUpdateOpen(false);
+    }
+  }
+  async function installUpdate() {
+    if (!update) return;
+    setUpdateError(null); setUpdateStage("downloading"); setUpdateProgress(0);
+    try {
+      let total = 0;
+      let downloaded = 0;
+      await update.downloadAndInstall((e) => {
+        if (e.event === "Started") total = e.data.contentLength ?? 0;
+        else if (e.event === "Progress") {
+          downloaded += e.data.chunkLength;
+          setUpdateProgress(total > 0 ? Math.min(100, (downloaded / total) * 100) : 0);
+        } else if (e.event === "Finished") {
+          setUpdateProgress(100);
+          setUpdateStage("installing");
+        }
+      });
+      // Installed. Relaunch into the new version.
+      await relaunch();
+    } catch (e) {
+      setUpdateError(String(e));
+      setUpdateStage("error");
+    }
+  }
+  const updateBusy = updateStage === "downloading" || updateStage === "installing";
   /** A small "?" help badge: hover shows a tooltip, click opens the full docs. */
   const q = (tip: string, section?: string) => (
     <button type="button" className="q" data-tip={tip}
@@ -578,6 +636,12 @@ function App() {
         <button className="docs-btn" onClick={() => openDocs()}>
           <span className="docs-btn-mark">?</span> docs &amp; help - how it works
         </button>
+
+        {updateStage === "available" && (
+          <button className="update-chip" onClick={() => setUpdateOpen(true)}>
+            <span className="update-dot" /> update available{update ? ` · v${update.version}` : ""}
+          </button>
+        )}
 
         <div className="tabs">
           <button className={`tab ${sidebarTab === "games" ? "tab--active" : ""}`} onClick={() => setSidebarTab("games")}>games</button>
@@ -937,6 +1001,10 @@ function App() {
                     {label}
                   </button>
                 ))}
+                <button className="docs-toc-link docs-toc-action"
+                  onClick={() => { setDocsOpen(false); checkForUpdate(true); }}>
+                  check for updates
+                </button>
               </nav>
 
               <div className="docs-content">
@@ -1074,6 +1142,61 @@ function App() {
                   </ul>
                 </section>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Update dialog (custom UI over the updater plugin) ---------- */}
+      {updateOpen && (
+        <div className="modal-overlay" onClick={() => !updateBusy && setUpdateOpen(false)}>
+          <div className="modal modal--update" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>app update</h3>
+              <button className="close-x" onClick={() => setUpdateOpen(false)} disabled={updateBusy}>×</button>
+            </div>
+            <div className="modal-body">
+              {updateStage === "checking" && <p className="modal-note">Checking for updates...</p>}
+
+              {updateStage === "uptodate" && (
+                <p className="update-msg">You are on the latest version.</p>
+              )}
+
+              {updateStage === "error" && (
+                <>
+                  <p className="update-msg">Could not check for updates.</p>
+                  {updateError && <p className="modal-note" style={{ wordBreak: "break-word" }}>{updateError}</p>}
+                  <div className="confirm-actions">
+                    <button className="btn" onClick={() => setUpdateOpen(false)}>close</button>
+                    <button className="btn btn--primary" onClick={() => checkForUpdate(true)}>retry</button>
+                  </div>
+                </>
+              )}
+
+              {update && (updateStage === "available" || updateBusy) && (
+                <>
+                  <p className="update-msg">
+                    <strong>Version {update.version}</strong> is available
+                    {update.currentVersion ? <span className="update-cur"> (you have {update.currentVersion})</span> : null}.
+                  </p>
+                  {update.body ? <div className="update-notes">{update.body}</div> : null}
+
+                  {updateBusy ? (
+                    <div className="update-progress">
+                      <div className="progress">
+                        <div className="progress-bar"><span style={{ width: `${updateProgress}%` }} /></div>
+                        <div className="progress-pct">{updateProgress.toFixed(0)}%</div>
+                      </div>
+                      <p className="modal-note">{updateStage === "installing" ? "Installing, the app will restart..." : "Downloading update..."}</p>
+                    </div>
+                  ) : (
+                    <div className="confirm-actions">
+                      <button className="btn" onClick={() => setUpdateOpen(false)}>later</button>
+                      <button className="btn btn--primary" onClick={installUpdate}>install and restart</button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -1254,6 +1254,73 @@ button {
   margin-top: var(--space-2);
 }
 
+/* update chip (sidebar, only when an update is available) */
+.update-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg-3);
+  color: var(--color-fg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  border-radius: var(--radius);
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.update-chip:hover {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+.update-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: var(--color-fg);
+}
+.update-chip:hover .update-dot {
+  background: var(--color-bg);
+}
+
+/* update dialog */
+.modal--update {
+  max-width: 460px;
+}
+.update-msg {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-fg);
+}
+.update-cur {
+  color: var(--color-fg-faint);
+}
+.update-notes {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--color-fg-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.update-progress {
+  margin-top: var(--space-2);
+}
+
+/* "check for updates" action at the bottom of the docs table of contents */
+.docs-toc-action {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--color-line);
+  color: var(--color-fg);
+}
+
 /* QR sign-in */
 .qr-wrap {
   align-items: center;
