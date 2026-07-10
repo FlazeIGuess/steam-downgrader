@@ -21,13 +21,13 @@ With it you can:
 It only works with games your own account owns, and it never bypasses any
 protection. This is a Windows app.
 
-## Demo
+## Tutorial
 
 <div align="center">
   <a href="https://youtu.be/oV0TT6KsZQI">
-    <img src="https://img.youtube.com/vi/oV0TT6KsZQI/maxresdefault.jpg" alt="Steam Downgrader demo video" width="640" />
+    <img src="https://img.youtube.com/vi/oV0TT6KsZQI/maxresdefault.jpg" alt="Steam Downgrader tutorial video" width="640" />
   </a>
-  <p><a href="https://youtu.be/oV0TT6KsZQI">Watch the demo on YouTube</a></p>
+  <p><a href="https://youtu.be/oV0TT6KsZQI">Watch the tutorial on YouTube</a></p>
 </div>
 
 ## Get it
