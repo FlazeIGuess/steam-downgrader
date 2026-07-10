@@ -33,7 +33,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "../steam-helper/publish/steam-helper.exe": "steam-helper.exe"
+    }
   },
   "plugins": {
     "updater": {

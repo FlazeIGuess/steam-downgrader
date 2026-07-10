@@ -49,8 +49,10 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build .NET helper (self-contained win-x64)
-        run: dotnet publish steam-helper/steam-helper.csproj -c Release -r win-x64 --self-contained true -o artifacts/steam-helper
+      # Single self-contained exe, bundled into the app via bundle.resources in
+      # tauri.conf.json. Must run before the Tauri build so the resource exists.
+      - name: Build .NET helper (single-file, self-contained win-x64)
+        run: dotnet publish steam-helper/steam-helper.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o steam-helper/publish
 
       # --- Non-tag: plain build check + upload artifacts ---
       - name: Build Tauri app
@@ -65,12 +67,12 @@ jobs:
           path: src-tauri/target/release/bundle/**
           if-no-files-found: error
 
-      - name: Upload helper
+      - name: Upload helper (standalone, also bundled inside the installer)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: steam-helper-win-x64
-          path: artifacts/steam-helper/**
+          path: steam-helper/publish/steam-helper.exe
           if-no-files-found: error
 
       # --- Tag: signed release with installer, updater artifacts, and latest.json ---
@@ -102,12 +104,3 @@ jobs:
           releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
-
-      - name: Attach helper to the release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        shell: pwsh
-        run: |
-          Compress-Archive -Path artifacts/steam-helper/* -DestinationPath artifacts/steam-helper-win-x64.zip -Force
-          gh release upload ${{ github.ref_name }} artifacts/steam-helper-win-x64.zip --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

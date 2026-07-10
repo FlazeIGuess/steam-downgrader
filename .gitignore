@@ -26,6 +26,7 @@ dist-ssr
 # .NET helper build output
 steam-helper/bin/
 steam-helper/obj/
+steam-helper/publish/
 .vs/
 
 # Runtime / dev

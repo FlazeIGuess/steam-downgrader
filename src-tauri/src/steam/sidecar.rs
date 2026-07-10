@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex, OnceCell};
@@ -27,10 +27,18 @@ struct Sidecar {
     _child: Child, // kept alive for the process lifetime
 }
 
-/// Locate the helper binary: env override, then dev build output, then next to the app.
-fn helper_path() -> std::path::PathBuf {
+/// Locate the helper binary: env override, then the bundled resource (installed
+/// app), then dev build output, then next to the app.
+fn helper_path(app: &AppHandle) -> std::path::PathBuf {
     if let Ok(p) = std::env::var("STEAM_HELPER_PATH") {
         return p.into();
+    }
+    // Bundled next to the installed app (Tauri resource).
+    if let Ok(res) = app.path().resource_dir() {
+        let p = res.join("steam-helper.exe");
+        if p.exists() {
+            return p;
+        }
     }
     let candidates = [
         "../steam-helper/bin/Release/net10.0/steam-helper.exe",
@@ -47,7 +55,7 @@ fn helper_path() -> std::path::PathBuf {
 }
 
 async fn init(app: AppHandle) -> Result<Sidecar, SteamError> {
-    let path = helper_path();
+    let path = helper_path(&app);
     let mut child = Command::new(&path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
