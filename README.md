@@ -128,9 +128,11 @@ steam-helper/   .NET helper (SteamKit2 + embedded DepotDownloader engine)
 
 ## License
 
-This project bundles and compiles DepotDownloader, which is licensed under GPL-2.0,
-so a distributed build of Steam Downgrader must comply with GPL-2.0. SteamKit2 is
-LGPL-2.1. Add a `LICENSE` file to the repository accordingly before publishing.
+Steam Downgrader is licensed under the GNU General Public License v2.0 (see
+[LICENSE](LICENSE)). You are free to use and modify it, and every copy you pass on
+must stay open source under the same license, so it cannot be turned into a
+closed-source product. It bundles DepotDownloader (GPL-2.0) and uses SteamKit2
+(LGPL-2.1).
 
 ## Credits
 

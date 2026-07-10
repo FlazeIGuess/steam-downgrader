@@ -3,6 +3,7 @@ name = "steam-downgrader"
 version = "0.1.0"
 description = "Roll a Steam game back to an earlier build"
 authors = ["Steam Downgrader contributors"]
+license = "GPL-2.0-only"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

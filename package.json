@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Roll a Steam game back to an earlier build",
+  "license": "GPL-2.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
