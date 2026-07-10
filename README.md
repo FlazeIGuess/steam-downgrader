@@ -135,6 +135,22 @@ steam-helper/   .NET helper (SteamKit2 + embedded DepotDownloader engine)
 
 </details>
 
+## Disclaimer
+
+This project is not affiliated with, endorsed by, or associated with Valve
+Corporation. Steam is a trademark of Valve Corporation.
+
+Steam Downgrader is provided as is, without any warranty (see the license). You
+use it at your own risk and are responsible for how you use it.
+
+- It only downloads builds of games your own Steam account owns, using your own
+  login. It does not bypass DRM or any copy protection.
+- Rolling a game back is meant for singleplayer and offline use. Old or modified
+  game files can be rejected online, and in games with anti-cheat (such as VAC)
+  they may put your account at risk. Do not use downgraded builds in online or
+  competitive games.
+- Make sure your use follows the Steam Subscriber Agreement.
+
 ## License
 
 Steam Downgrader is licensed under the GNU General Public License v2.0 (see
