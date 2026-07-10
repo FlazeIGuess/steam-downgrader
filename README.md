@@ -73,6 +73,85 @@ and the frozen copy, or restores your original install.
 - Very old builds can be removed from Steam's servers and may no longer download.
 - Your Steam login is sent only to Steam and is never stored by this app.
 
+## Your data and privacy
+
+Steam Downgrader has no backend of its own. It does not collect analytics, it has
+no telemetry, and it never sends anything about you or your usage to the developer
+or to any third party.
+
+The only things that ever talk to the network are:
+
+- Steam's own servers, through the official SteamKit2 library and the DepotDownloader
+  engine, for signing in, reading your library, looking up builds, and downloading them.
+- GitHub, to check whether a newer version of the app exists and to download the update.
+- SteamDB is only ever opened as a normal link in your web browser. The app itself
+  never contacts or scrapes SteamDB.
+
+Your Steam login:
+
+- You sign in with a QR code (scanned in the Steam mobile app) or with your username
+  and password. These go straight to Steam through SteamKit2. Your password is never
+  stored and never sent anywhere except Steam.
+- After you sign in, Steam issues a login token (a refresh token, not your password).
+  So downloads can run without asking you to sign in every time, this token is cached
+  on your machine in a local account.config file. Deleting that file removes the
+  cached login.
+
+What is stored on your machine:
+
+- The rollback library at `%APPDATA%\steam-downgrader\rollbacks.json`: the games and
+  builds you downloaded (app ids, names, manifest ids, folder paths, and whether a
+  build is applied). It contains no credentials.
+- The game builds you download, in the folder you choose (by default a folder next to
+  the game's install).
+- A small setting for your preferred download folder.
+
+Everything above stays on your computer. You can remove all of it at any time by
+deleting the app, the `account.config` file, and the folders listed above.
+
+## How it works
+
+### Tech stack
+
+- Desktop shell: Tauri 2, a Rust backend and a web frontend in one native window.
+- Frontend: React and TypeScript, built with Vite.
+- App logic: Rust, the commands that scan your Steam libraries, apply and revert
+  builds, and manage the rollback library.
+- Steam integration: a small .NET helper that uses SteamKit2 for login, ownership, and
+  build information.
+- Downloads: the DepotDownloader engine, compiled into the helper from a git submodule.
+- Updates: the Tauri updater, with signed release artifacts.
+
+### The pieces
+
+Steam Downgrader is made of three parts, all running on your machine:
+
+1. The window you see, built with React and TypeScript.
+2. A Rust backend inside the same app that does the local work: scanning your Steam
+   libraries, applying and reverting builds, and keeping the rollback library.
+3. A small .NET helper process that speaks to Steam. The Rust backend and the helper
+   talk over a local text channel (JSON over standard input and output). None of that
+   channel goes over the network.
+
+### What happens when you roll a game back
+
+1. You sign in. The helper authenticates with Steam and receives a login token.
+2. The app reads your installed and owned games, and the depots of the game you pick.
+3. You open the depot on SteamDB in your browser, find the build you want by date, and
+   paste its manifest into the app.
+4. The helper downloads exactly that build straight from Steam's content servers using
+   the DepotDownloader engine, and the app shows live progress.
+5. You either apply the build or launch it directly:
+   - Separate copy: the build is copied into a frozen folder and added to Steam as a
+     non-Steam shortcut, so your real install stays untouched.
+   - In-place freeze: your install is moved aside as a backup, the old build is copied
+     into its place, and auto-update is disabled in the app manifest.
+
+Applying and reverting are plain local file operations (moving folders, patching the
+appmanifest, and editing Steam's shortcuts file). Deleting an applied version undoes it
+automatically. Every download is remembered in the rollback library, so you can launch,
+re-apply, or delete it later.
+
 ## Build from source
 
 <details>
@@ -110,20 +189,6 @@ Build a release installer (build the helper in Release first):
 cd steam-helper && dotnet build -c Release && cd ..
 npm run tauri build
 ```
-
-### How it works
-
-The app is a Tauri shell (Rust backend, React frontend) plus a small .NET helper
-that talks to Steam.
-
-- The Rust backend talks to the .NET helper over newline-delimited JSON on
-  stdin/stdout.
-- The helper uses SteamKit2 for login, ownership, and depot info, and runs downloads
-  through DepotDownloader's engine, which is compiled in from a git submodule.
-- Applying and reverting are plain filesystem operations: moving folders, patching
-  the appmanifest, and editing Steam's shortcuts file.
-
-SteamDB is only ever opened in your browser. The app never scrapes it.
 
 ### Project layout
 
