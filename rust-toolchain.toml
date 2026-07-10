@@ -1,0 +1,4 @@
+[toolchain]
+# Aktuelles Crate-Ökosystem (edition2024) braucht >= 1.85. Projekt-lokal auf
+# stable gepinnt, ohne den globalen Default anzufassen.
+channel = "stable"

@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# .NET helper build output
+steam-helper/bin/
+steam-helper/obj/
+.vs/
+
+# Runtime / dev
+devlog.txt
+# DepotDownloader saved login tokens (never commit)
+account.config
+
+# Tooling / skill artifacts
+.hallmark/
+
+# Legacy standalone DepotDownloader binary (the engine is now embedded via the
+# git submodule at steam-helper/vendor/DepotDownloader)
+/tools/

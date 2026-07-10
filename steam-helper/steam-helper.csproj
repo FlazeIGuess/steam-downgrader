@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>steam_helper</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- DepotDownloader formats progress with '.'; keep numbers invariant so our
+         parser and the engine agree regardless of the machine's locale. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SteamKit2" Version="3.4.0" />
+    <PackageReference Include="protobuf-net" Version="3.2.56" />
+    <PackageReference Include="QRCoder" Version="1.8.0" />
+  </ItemGroup>
+
+  <!-- Vendored DepotDownloader engine (git submodule, pinned).
+       Compiled in UNMODIFIED so upstream updates are just a submodule bump.
+       Excluded: Program.cs (duplicate Main) and the native console-cosmetic
+       files (Ansi/AnsiDetector/PlatformUtilities) — stubbed in DdStubs.cs to
+       avoid the CsWin32 source generator. All integration lives in our files. -->
+  <ItemGroup>
+    <Compile Remove="vendor/**/*.cs" />
+    <Compile Include="vendor/DepotDownloader/DepotDownloader/*.cs"
+             Exclude="vendor/DepotDownloader/DepotDownloader/Program.cs;vendor/DepotDownloader/DepotDownloader/Ansi.cs;vendor/DepotDownloader/DepotDownloader/AnsiDetector.cs;vendor/DepotDownloader/DepotDownloader/PlatformUtilities.cs" />
+  </ItemGroup>
+
+</Project>

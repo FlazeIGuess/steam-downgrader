@@ -1,0 +1,55 @@
+/* Hallmark · tokens - Terminal (monochrome)
+ * paper: oklch(15% 0 0) near-black · fg: oklch(90% 0 0) · zero chroma throughout · mono only
+ */
+:root {
+  color-scheme: dark;
+
+  /* --- surfaces (near-black → raised), zero chroma --- */
+  --color-bg: oklch(14.5% 0 0);
+  --color-bg-2: oklch(17.5% 0 0);
+  --color-bg-3: oklch(21% 0 0);
+  --color-raise: oklch(25% 0 0);
+
+  /* --- foreground --- */
+  --color-fg: oklch(90% 0 0);
+  --color-fg-dim: oklch(65% 0 0);
+  --color-fg-faint: oklch(47% 0 0);
+
+  /* --- lines --- */
+  --color-line: oklch(32% 0 0);
+  --color-line-soft: oklch(25% 0 0);
+
+  /* --- highlight (the only "accent": brightest white, used inverted) --- */
+  --color-hi: oklch(98% 0 0);
+  --color-hi-ink: oklch(14.5% 0 0);
+
+  /* --- type: monospace only --- */
+  --font-mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Consolas", ui-monospace, monospace;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.8rem;
+  --text-base: 0.88rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.9rem;
+
+  /* --- space (4pt) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* --- geometry: terminal is square --- */
+  --radius: 2px;
+
+  /* --- motion --- */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --dur-1: 90ms;
+  --dur-2: 160ms;
+}
