@@ -3,6 +3,16 @@
 The section for a version tag is used as the release notes and shown in the
 in-app update window. Add a new "## vX.Y.Z" section at the top for each release.
 
+## v0.2.1
+
+Changed
+
+- The in-app update window now shows a cleaner, structured changelog, with sections
+  and bullet lists instead of raw text, and a clearer version summary.
+- Reworked the documentation: the README is now a short overview, and the full
+  guides moved into a docs folder (usage, how it works, privacy, build from source,
+  and troubleshooting).
+
 ## v0.2.0
 
 New

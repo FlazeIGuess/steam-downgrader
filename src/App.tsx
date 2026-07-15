@@ -160,6 +160,46 @@ function Logo({ size = 36 }: { size?: number }) {
   );
 }
 
+/** Render the simple release-note format (short headings + "- " bullet lists,
+ *  with wrapped continuation lines) as structured JSX instead of raw text. */
+function ReleaseNotes({ body }: { body: string }) {
+  type Block =
+    | { type: "heading"; text: string }
+    | { type: "list"; items: string[] }
+    | { type: "para"; text: string };
+  const blocks: Block[] = [];
+  let list: string[] | null = null;
+  for (const raw of body.replace(/\r/g, "").split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    if (!line.trim()) { list = null; continue; }
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+    if (bullet) {
+      if (!list) { list = []; blocks.push({ type: "list", items: list }); }
+      list.push(bullet[1]);
+    } else if (/^\s+\S/.test(raw) && list && list.length) {
+      list[list.length - 1] += " " + line.trim(); // continuation of the last bullet
+    } else {
+      list = null;
+      const t = line.trim();
+      if (t.length <= 24 && !/[.:]$/.test(t)) blocks.push({ type: "heading", text: t });
+      else blocks.push({ type: "para", text: t });
+    }
+  }
+  return (
+    <div className="rn">
+      {blocks.map((b, i) =>
+        b.type === "heading" ? (
+          <div className="rn-h" key={i}>{b.text}</div>
+        ) : b.type === "para" ? (
+          <p className="rn-p" key={i}>{b.text}</p>
+        ) : (
+          <ul className="rn-list" key={i}>{b.items.map((it, j) => <li key={j}>{it}</li>)}</ul>
+        )
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 
 function App() {
@@ -181,7 +221,6 @@ function App() {
   const [updateStage, setUpdateStage] = useState<"checking" | "available" | "downloading" | "installing" | "uptodate" | "error">("uptodate");
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
-  const [notesOpen, setNotesOpen] = useState(false);
 
   // Sidebar
   const [sidebarTab, setSidebarTab] = useState<"games" | "rollbacks">("games");
@@ -1338,16 +1377,23 @@ function App() {
 
               {update && (updateStage === "available" || updateBusy) && (
                 <>
-                  <p className="update-msg">
-                    <strong>Version {update.version}</strong> is available
-                    {update.currentVersion ? <span className="update-cur"> (you have {update.currentVersion})</span> : null}.
-                  </p>
+                  <div className="update-hero">
+                    <div className="uv">
+                      {update.currentVersion && (
+                        <>
+                          <span className="uv-old">v{update.currentVersion}</span>
+                          <span className="uv-arrow">→</span>
+                        </>
+                      )}
+                      <span className="uv-new">v{update.version}</span>
+                    </div>
+                    <p className="update-sub">A new version of Steam Downgrader is available.</p>
+                  </div>
+
                   {update.body ? (
                     <div className="update-changelog">
-                      <button className="update-notes-toggle" onClick={() => setNotesOpen((o) => !o)}>
-                        <span className="update-notes-caret">{notesOpen ? "▾" : "▸"}</span> what&apos;s new in v{update.version}
-                      </button>
-                      {notesOpen && <div className="update-notes">{update.body}</div>}
+                      <div className="rn-title">what&apos;s new</div>
+                      <div className="update-notes"><ReleaseNotes body={update.body} /></div>
                     </div>
                   ) : null}
 
