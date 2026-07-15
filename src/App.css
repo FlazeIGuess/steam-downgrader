@@ -153,7 +153,9 @@ button {
   padding: var(--space-2);
   cursor: pointer;
 }
-.tab:hover {
+/* only non-active tabs brighten on hover; the active tab is already selected and
+   stays stable (white bg, dark text), which also avoids white-on-white text */
+.tab:not(.tab--active):hover {
   color: var(--color-fg);
 }
 .tab--active {
@@ -339,6 +341,16 @@ button {
   flex: 1;
 }
 
+/* shared sidebar footer (coffee + version, under both tabs) */
+.sidebar-footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-footer .coffee-btn {
+  margin-top: 0;
+}
+
 /* support / buy-me-a-coffee button */
 .coffee-btn {
   display: flex;
@@ -368,6 +380,16 @@ button {
   width: 14px;
   height: 14px;
   flex: none;
+}
+
+/* app version, under the coffee button */
+.app-version {
+  text-align: center;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ============ Workspace ============ */
@@ -764,6 +786,303 @@ button {
 }
 .add-controls .field {
   flex: 1;
+}
+
+/* ============ Build picker (step 1) ============ */
+.pick-intro {
+  color: var(--color-fg-dim);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  margin: 0 0 var(--space-4);
+}
+
+/* one-click "go back one build" */
+.restore-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--color-fg);
+  border-radius: var(--radius);
+  background: var(--color-bg-3);
+  color: var(--color-fg);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.restore-cta:hover {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+.restore-cta-ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.restore-cta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.restore-cta-text strong {
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+.restore-cta-text span {
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+}
+.restore-cta-go {
+  flex: none;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-fg-faint);
+}
+.restore-cta:hover .restore-cta-text span,
+.restore-cta:hover .restore-cta-go {
+  color: var(--color-bg);
+}
+
+/* "build selected" tag in the depot header */
+.depot-ok-tag {
+  flex: none;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  background: var(--color-fg-dim);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius);
+}
+
+.picker {
+  margin-bottom: var(--space-2);
+}
+.pick-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.pick-head-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-fg-faint);
+}
+.pick-head-sub {
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+}
+
+/* dated build rows, on a vertical rail */
+.builds {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.builds::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--color-line);
+}
+.build {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+  border-radius: var(--radius);
+}
+.build:hover {
+  background: var(--color-bg-3);
+}
+.build > .btn {
+  flex: none;
+}
+.build-dot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-fg-faint);
+}
+.build--current .build-dot,
+.build--sel .build-dot {
+  background: var(--color-fg);
+  border-color: var(--color-fg);
+}
+.build--sel {
+  background: var(--color-bg-3);
+}
+.build-info {
+  flex: 1;
+  min-width: 0;
+}
+.build-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.build-date {
+  font-size: var(--text-sm);
+  color: var(--color-fg);
+  font-variant-numeric: tabular-nums;
+}
+.build-tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  background: var(--color-fg);
+  padding: 1px 5px;
+  border-radius: var(--radius);
+}
+.build-patch {
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.build-patch em {
+  font-style: normal;
+  color: var(--color-fg-dim);
+}
+.build-here {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+}
+.pick-more {
+  display: inline-block;
+  margin: var(--space-2) 0 0 var(--space-5);
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: var(--color-fg-faint);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.pick-more:hover {
+  color: var(--color-fg);
+}
+.pick-loading,
+.pick-empty {
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+  line-height: 1.6;
+  margin: 0 0 var(--space-2);
+}
+
+/* collapsible SteamDB / manual fallback */
+.manual-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
+  margin-top: var(--space-2);
+  padding: var(--space-1) 0;
+  background: none;
+  border: none;
+  color: var(--color-fg-faint);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.manual-toggle:hover {
+  color: var(--color-fg);
+}
+.depot-manual {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius);
+}
+.depot-manual .depot-paste {
+  margin-top: var(--space-2);
+}
+
+/* coverage tag when a build isn't cached for every content depot */
+.build-partial {
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: var(--color-fg-faint);
+  border: 1px solid var(--color-line);
+  padding: 0 4px;
+  border-radius: var(--radius);
+}
+
+/* advanced: per-depot manifest paste (collapsible) */
+.adv-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.adv-toggle-row .manual-toggle {
+  width: auto;
+}
+.advanced {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius);
+}
+.adv-depot {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--color-line-soft);
+}
+.adv-depot:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.adv-depot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* one depot's manifest field + dated build picker */
+.depot-pick {
+  margin-bottom: var(--space-4);
+}
+.depot-pick:last-child {
+  margin-bottom: 0;
+}
+.depot-pick .picker {
+  margin-top: var(--space-3);
+}
+.depot-pick .depot-head {
+  margin-bottom: var(--space-2);
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+}
+.adv-depot .depot-pick {
+  margin-bottom: 0;
 }
 
 /* ============ Timeline ============ */

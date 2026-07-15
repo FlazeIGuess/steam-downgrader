@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { QRCodeSVG } from "qrcode.react";
@@ -50,6 +51,33 @@ interface DepotInfo {
 }
 interface AppInfo {
   depots: DepotInfo[];
+}
+// Dated build timeline (matches steam::timeline in Rust). One build = one dated
+// manifest of one depot; the current public build plus anything cached locally.
+interface BuildEntry {
+  manifest_id: string;
+  timestamp: number;
+  date_iso: string;
+  is_current: boolean;
+  source: string; // "pics" | "depotcache"
+  patch_title: string | null;
+}
+interface DepotTimeline {
+  depot_id: number;
+  builds: BuildEntry[];
+}
+interface PatchEntry {
+  title: string;
+  date: number;
+  date_iso: string;
+  url: string;
+}
+interface BuildTimeline {
+  app_id: number;
+  current_build_id: number | null;
+  current_ts: number;
+  depots: DepotTimeline[];
+  patches: PatchEntry[];
 }
 interface AppliedInfo { model: string; path: string; at: number; }
 interface RollbackEntry {
@@ -135,6 +163,9 @@ function Logo({ size = 36 }: { size?: number }) {
 // ============================================================================
 
 function App() {
+  // App version (read at runtime from the Tauri config).
+  const [appVersion, setAppVersion] = useState("");
+
   // Docs / help
   const [docsOpen, setDocsOpen] = useState(false);
   const [docsSection, setDocsSection] = useState<string>("");
@@ -172,6 +203,11 @@ function App() {
   const [showAllDepots, setShowAllDepots] = useState(false);
   const [depotsLoading, setDepotsLoading] = useState(false);
   const [versionLabel, setVersionLabel] = useState("");
+
+  // In-app build timeline (pick a build by date) + UI state.
+  const [timeline, setTimeline] = useState<BuildTimeline | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [buildsShown, setBuildsShown] = useState<Record<number, boolean>>({});
 
   // 3-step download wizard
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -224,6 +260,8 @@ function App() {
   useEffect(() => { if (account) loadOwned(); }, [account]);
   // Silently check for an app update on startup.
   useEffect(() => { checkForUpdate(false); }, []);
+  // Read the running app version once (for the sidebar footer).
+  useEffect(() => { getVersion().then(setAppVersion).catch(() => { /* ignore */ }); }, []);
   // Scroll the docs modal to a requested section.
   useEffect(() => {
     if (!docsOpen || !docsSection) return;
@@ -283,6 +321,7 @@ function App() {
 
   async function loadDepots(appId: number) {
     setDepotsLoading(true);
+    setTimeline(null); setBuildsShown({}); setTimelineLoading(true);
     let list: DepotInfo[] = [];
     try {
       const info = await invoke<AppInfo>("steam_appinfo", { appId });
@@ -293,6 +332,12 @@ function App() {
       setShowAllDepots(!list.some((d) => depotIsWindows(d) && depotIs64(d) && !d.dlcappid));
     } catch (e) { setError(String(e)); setDepots([]); }
     finally { setDepotsLoading(false); }
+    // The Steam connection is warm now, so fetch the dated build timeline (non-
+    // blocking, additive: the manual SteamDB paste path always stays available).
+    invoke<BuildTimeline>("steam_build_timeline", { appId })
+      .then((t) => setTimeline(t))
+      .catch(() => setTimeline(null))
+      .finally(() => setTimelineLoading(false));
   }
 
   function openManualFromLibrary(e: FormEvent) {
@@ -306,6 +351,21 @@ function App() {
   }
   function openSteamdb(depotId: number) {
     invoke("open_url", { url: steamdbUrl(depotId) }).catch((e) => setError(String(e)));
+  }
+
+  // --- Build timeline (pick a build by date) --------------------------------
+  function depotBuilds(depotId: number): BuildEntry[] {
+    return timeline?.depots.find((d) => d.depot_id === depotId)?.builds ?? [];
+  }
+  /** Select a build for ONE depot: fills that depot's manifest (single value,
+   *  so a depot can only ever have one build selected). Suggests a name. */
+  function pickDepotBuild(depotId: number, b: BuildEntry) {
+    setManifestInputs((m) => ({ ...m, [depotId]: b.manifest_id }));
+    setVersionLabel((cur) => (cur.trim() ? cur : b.patch_title ? `before ${b.patch_title}` : `build ${b.date_iso}`));
+  }
+  /** Select the build right before the current one for the primary depot. */
+  function restorePrimaryPrevious() {
+    if (primaryDepot && primaryPrevBuild) pickDepotBuild(primaryDepot.depot_id, primaryPrevBuild);
   }
   function openFolder(path: string) { invoke("open_folder", { path }).catch((e) => setError(String(e))); }
   function openDocs(section?: string) { setDocsSection(section ?? ""); setDocsOpen(true); }
@@ -567,18 +627,104 @@ function App() {
     () => (selected ? rollbacks.filter((r) => r.app_id === selected.appId) : []),
     [rollbacks, selected]);
 
-  // Default view: Windows 64-bit content depots only (what a Windows user needs).
-  const visibleDepots = useMemo(
-    () => showAllDepots ? depots : depots.filter((d) => depotIsWindows(d) && depotIs64(d) && !d.dlcappid),
-    [depots, showAllDepots]);
-  const hiddenDepotCount = depots.length - visibleDepots.length;
-
   const canDownload = useMemo(
     () => depots.some((d) => /^\d+$/.test(manifestInputs[d.depot_id] ?? "")),
     [depots, manifestInputs]);
 
+  // The depot that matches this machine: the main Windows 64-bit content depot.
+  // Shown directly with its own manifest field + date picker.
+  const primaryDepot = useMemo<DepotInfo | null>(() => {
+    const content = depots.filter((d) => !d.dlcappid);
+    return (
+      content.find((d) => d.oslist?.includes("windows") && d.osarch === "64") ||
+      content.find((d) => d.oslist?.includes("windows")) ||
+      content.find((d) => !d.oslist) || // shared / all-platforms
+      content[0] || depots[0] || null
+    );
+  }, [depots]);
+
+  // Every other depot (extra content, DLC, other OS); revealed by "show all depots".
+  const otherDepots = useMemo(
+    () => depots.filter((d) => d.depot_id !== primaryDepot?.depot_id),
+    [depots, primaryDepot]);
+
+  // The newest build before the current one, for the primary depot (restore CTA).
+  const primaryPrevBuild = useMemo<BuildEntry | null>(() => {
+    if (!timeline || !primaryDepot) return null;
+    const builds = timeline.depots.find((t) => t.depot_id === primaryDepot.depot_id)?.builds ?? [];
+    return builds.find((b) => !b.is_current && b.timestamp < timeline.current_ts) ?? null;
+  }, [timeline, primaryDepot]);
+
   const justEntry = useMemo(() => rollbacks.find((r) => r.id === justId) ?? null, [rollbacks, justId]);
   const canApply = !!(selected?.installed && selected.installDir);
+
+  // --- Reusable: one depot's manifest field + dated build picker -------------
+  function renderDepotPicker(d: DepotInfo) {
+    const input = manifestInputs[d.depot_id] ?? "";
+    const filled = /^\d+$/.test(input);
+    const builds = depotBuilds(d.depot_id);
+    const LIMIT = 6;
+    const showAll = buildsShown[d.depot_id] ?? false;
+    const shown = showAll ? builds : builds.slice(0, LIMIT);
+    return (
+      <div className="depot-pick">
+        <div className="depot-head">
+          <span className="depot-id">{depotLabel(d)} <span className="depot-num">· depot {d.depot_id}</span></span>
+          <button className="btn btn--depot btn--sm" onClick={() => openSteamdb(d.depot_id)}>Open depot {d.depot_id} on SteamDB ↗</button>
+        </div>
+        {/* the manifest that will be downloaded for this depot - always visible */}
+        <div className="depot-paste">
+          <input className="field" placeholder="paste a manifest, or pick a build below - Steam console / DepotDownloader / plain ID"
+            value={input} onChange={(e) => setDepotManifest(d.depot_id, e.target.value)} />
+          {filled && <span className="depot-ok" title="Manifest detected">✓</span>}
+        </div>
+        {timelineLoading && builds.length === 0 ? (
+          <p className="pick-loading">reading your build history…</p>
+        ) : builds.length > 0 ? (
+          <div className="picker">
+            <div className="pick-head">
+              <span className="pick-head-title">or pick a build by date</span>
+              <span className="pick-head-sub">current + cached on this PC</span>
+            </div>
+            <ul className="builds">
+              {shown.map((b) => {
+                const sel = input === b.manifest_id;
+                return (
+                  <li key={b.manifest_id}
+                    className={`build${b.is_current ? " build--current" : ""}${sel ? " build--sel" : ""}`}>
+                    <span className="build-dot" />
+                    <div className="build-info">
+                      <div className="build-line">
+                        <span className="build-date">{b.date_iso}</span>
+                        {b.is_current && <span className="build-tag">current</span>}
+                      </div>
+                      {b.patch_title && !b.is_current && (
+                        <div className="build-patch">the build before &ldquo;<em>{b.patch_title}</em>&rdquo;</div>
+                      )}
+                    </div>
+                    {b.is_current ? (
+                      <span className="build-here">you are here</span>
+                    ) : (
+                      <button className={`btn btn--sm${sel ? "" : " btn--depot"}`} onClick={() => pickDepotBuild(d.depot_id, b)}>
+                        {sel ? "✓ selected" : "use this build"}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {builds.length > LIMIT && (
+              <button className="pick-more" onClick={() => setBuildsShown((s) => ({ ...s, [d.depot_id]: !showAll }))}>
+                {showAll ? "show fewer" : `show all ${builds.length} builds`}
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="pick-empty">No older builds are cached on this PC. Paste a manifest from SteamDB above.</p>
+        )}
+      </div>
+    );
+  }
 
   // --- Reusable: the two apply models for one version -----------------------
   function renderApplyModels(v: RollbackEntry) {
@@ -729,18 +875,6 @@ function App() {
                 value={manualId} onChange={(e) => setManualId(e.currentTarget.value)} />
               <button className="btn btn--sm" type="submit">open</button>
             </form>
-            <button className="coffee-btn"
-              onClick={() => invoke("open_url", { url: "https://ko-fi.com/flazeiguess" }).catch((e) => setError(String(e)))}>
-              <svg className="coffee-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
-                <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-                <line x1="6" x2="6" y1="2" y2="4" />
-                <line x1="10" x2="10" y1="2" y2="4" />
-                <line x1="14" x2="14" y1="2" y2="4" />
-              </svg>
-              buy me a coffee
-            </button>
           </div>
         ) : (
           <div className="lib">
@@ -760,6 +894,23 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Shared footer: visible under both tabs */}
+        <div className="sidebar-footer">
+          <button className="coffee-btn"
+            onClick={() => invoke("open_url", { url: "https://ko-fi.com/flazeiguess" }).catch((e) => setError(String(e)))}>
+            <svg className="coffee-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+              <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+              <line x1="6" x2="6" y1="2" y2="4" />
+              <line x1="10" x2="10" y1="2" y2="4" />
+              <line x1="14" x2="14" y1="2" y2="4" />
+            </svg>
+            buy me a coffee
+          </button>
+          {appVersion && <div className="app-version">v{appVersion}</div>}
+        </div>
       </aside>
 
       {/* ---------- Workspace ---------- */}
@@ -844,54 +995,47 @@ function App() {
                 {/* STEP 1 - choose the build */}
                 {step === 1 && (
                   <>
-                    <div className="sdb-callout">
-                      <div className="sdb-callout-head">
-                        <span className="sdb-badge">SteamDB</span>
-                        <strong>You get the manifest code from SteamDB</strong>
-                        {q("SteamDB lists every past build of a game by date - Steam's own app doesn't. This app only links to it (never scrapes it).", "manifest")}
-                      </div>
-                      <ol className="sdb-steps">
-                        <li><span className="sdb-n">1</span> Open the depot on SteamDB (button below)</li>
-                        <li><span className="sdb-n">2</span> Find the build by date, hit <em>copy</em></li>
-                        <li><span className="sdb-n">3</span> Paste it into the depot field - done</li>
-                      </ol>
-                      <p className="sdb-note">Any format works: <em>Steam console</em>, <em>DepotDownloader</em>, or just the plain <em>Manifest ID</em>.</p>
-                    </div>
+                    <p className="pick-intro">
+                      Pick an older build <strong>by date</strong> for your game's depot below, or paste a
+                      manifest from SteamDB. The current build and any builds cached on your PC are listed
+                      automatically - no manifest codes needed.
+                      {q("Steam Downgrader lists the builds your PC already knows about (the current one from Steam, older ones from Steam's local depotcache) by date, for the depot that matches your machine. Builds that were never cached aren't listed - for those, open the depot on SteamDB and paste a manifest. Each depot is downloaded independently: only the depots you fill in are fetched.", "build-picker")}
+                    </p>
+
+                    {/* One-click: go back one build (the version before the current update) */}
+                    {primaryDepot && primaryPrevBuild && (
+                      <button className="restore-cta" onClick={restorePrimaryPrevious}>
+                        <svg className="restore-cta-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="11 19 4 12 11 5" />
+                          <polyline points="20 19 13 12 20 5" />
+                        </svg>
+                        <span className="restore-cta-text">
+                          <strong>Go back one build</strong>
+                          <span>Select the build from {primaryPrevBuild.date_iso} - the version right before the current update.</span>
+                        </span>
+                        <span className="restore-cta-go">{manifestInputs[primaryDepot.depot_id] === primaryPrevBuild.manifest_id ? "selected ✓" : "select →"}</span>
+                      </button>
+                    )}
 
                     {depotsLoading ? (
                       <p className="hint">loading depots…</p>
                     ) : depots.length === 0 ? (
                       <p className="hint">No depots found for this app.</p>
+                    ) : !primaryDepot ? (
+                      <p className="hint">No downloadable depot found for this app.</p>
                     ) : (
                       <>
-                        {visibleDepots.map((d) => {
-                          const input = manifestInputs[d.depot_id] ?? "";
-                          const filled = /^\d+$/.test(input);
-                          return (
-                            <div className="depot-block" key={d.depot_id}>
-                              <div className="depot-head">
-                                <span className="depot-id">{depotLabel(d)} <span className="depot-num">· depot {d.depot_id}</span>
-                                  {q("A game is split into depots - e.g. Windows content, language packs, DLC. For most Windows games you only need the main one shown here.", "depots")}
-                                </span>
-                              </div>
-                              <div className="depot-guide">
-                                <button className="btn btn--depot" onClick={() => openSteamdb(d.depot_id)}>
-                                  <span className="step-badge">1</span> Open depot {d.depot_id} on SteamDB ↗
-                                </button>
-                                <span className="depot-guide-arrow">then copy a manifest and paste it below ↓</span>
-                              </div>
-                              <div className="depot-paste">
-                                <span className="step-badge step-badge--paste">2</span>
-                                <input className="field" placeholder="paste manifest here - Steam console / DepotDownloader / plain ID"
-                                  value={input} onChange={(e) => setDepotManifest(d.depot_id, e.target.value)} />
-                                {filled && <span className="depot-ok" title="Manifest detected">✓</span>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {(hiddenDepotCount > 0 || showAllDepots) && (
+                        {/* Primary depot: the one that matches this machine, shown directly */}
+                        {renderDepotPicker(primaryDepot)}
+
+                        {/* Other depots (extra content, DLC, other OS) - shown inline when expanded */}
+                        {showAllDepots && otherDepots.map((d) => (
+                          <div className="adv-depot" key={d.depot_id}>{renderDepotPicker(d)}</div>
+                        ))}
+                        {otherDepots.length > 0 && (
                           <button className="load-more" onClick={() => setShowAllDepots((v) => !v)}>
-                            {showAllDepots ? "show only Windows 64-bit depot" : `show all depots (${depots.length}) - other OS, 32-bit, DLC`}
+                            {showAllDepots ? "show only the main depot" : `show all depots (${otherDepots.length} more) - extra content, DLC, other OS`}
                           </button>
                         )}
 
@@ -986,6 +1130,7 @@ function App() {
                 {[
                   ["overview", "What this is"],
                   ["roll-back", "Roll a game back"],
+                  ["build-picker", "Pick a build by date"],
                   ["manifest", "Manifest from SteamDB"],
                   ["depots", "Depots explained"],
                   ["apply-separate", "Apply · separate copy"],
@@ -1022,10 +1167,27 @@ function App() {
                   <ol className="docs-list">
                     <li><strong>Pick a game</strong> on the left. Installed games can be downgraded in place; games you
                       only own are download-and-launch only.</li>
-                    <li><strong>Choose the build.</strong> Get its manifest from SteamDB and paste it in (see below).</li>
+                    <li><strong>Choose the build.</strong> Pick one by date from the in-app list, or paste a manifest from SteamDB (see below).</li>
                     <li><strong>Download</strong>, then <strong>Apply</strong> (installed) or <strong>Launch</strong>{" "}
                       (not installed). Every download is saved under <em>Rollbacks</em>.</li>
                   </ol>
+                </section>
+
+                <section id="docs-build-picker" className="docs-sec">
+                  <h4>Pick a build by date</h4>
+                  <p>In step 1 the app shows a <strong>dated list of builds</strong> for each depot, so you can
+                    usually skip SteamDB entirely. It's built from what your PC already knows:</p>
+                  <ul className="docs-list">
+                    <li>The <strong>current build</strong> from Steam (marked <em>current - you are here</em>).</li>
+                    <li>Older builds still in Steam's local <strong>depotcache</strong>, each with its real build date.</li>
+                    <li>Where a patch note lines up, a build is labelled <em>the build before &ldquo;&hellip;&rdquo;</em>, using
+                      Steam's public news feed.</li>
+                  </ul>
+                  <p>Click <strong>use this build</strong> on any row to select it, then download. The shortcut
+                    <strong> Go back one build</strong> selects the version right before the current update in one click.</p>
+                  <p className="docs-note">Only the current build and builds cached on your PC can be listed here.
+                    Steam prunes the depotcache over time, so deep history may not appear - for those, use the
+                    <strong> SteamDB</strong> fallback under each depot. We never scrape SteamDB; it only opens as a link.</p>
                 </section>
 
                 <section id="docs-manifest" className="docs-sec">

@@ -18,6 +18,7 @@ pub mod downloader;
 pub mod library;
 pub mod resolver;
 pub mod sidecar;
+pub mod timeline;
 
 use thiserror::Error;
 

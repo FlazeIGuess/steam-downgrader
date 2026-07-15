@@ -44,9 +44,10 @@ Three steps:
 1. Sign in to Steam. Scan the QR code with the Steam mobile app (easiest), or use
    your username and password. Your login goes straight to Steam and is never saved
    by the app.
-2. Choose the build. Steam does not list old builds, but the website SteamDB does.
-   Click "Open on SteamDB", find the build you want by date, copy its manifest, and
-   paste it into the app.
+2. Choose the build. Steam Downgrader lists builds by date for you: the current
+   build plus older builds still cached on your PC. Pick one, or use "Go back one
+   build" to jump to the version right before the last update. For a build that is
+   not listed, open the depot on SteamDB, copy its manifest, and paste it in.
 3. Download, then apply or play. Choose where to save it and download. Then either
    apply the build to your installed game, or launch the downloaded build directly.
 
@@ -137,8 +138,8 @@ Steam Downgrader is made of three parts, all running on your machine:
 
 1. You sign in. The helper authenticates with Steam and receives a login token.
 2. The app reads your installed and owned games, and the depots of the game you pick.
-3. You open the depot on SteamDB in your browser, find the build you want by date, and
-   paste its manifest into the app.
+3. You pick the build by date from the in-app list (the current build plus builds
+   cached on your PC), or paste a manifest from SteamDB for anything older.
 4. The helper downloads exactly that build straight from Steam's content servers using
    the DepotDownloader engine, and the app shows live progress.
 5. You either apply the build or launch it directly:

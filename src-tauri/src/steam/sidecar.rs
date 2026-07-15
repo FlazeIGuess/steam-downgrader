@@ -56,17 +56,28 @@ fn helper_path(app: &AppHandle) -> std::path::PathBuf {
 
 async fn init(app: AppHandle) -> Result<Sidecar, SteamError> {
     let path = helper_path(&app);
-    let mut child = Command::new(&path)
-        .stdin(Stdio::piped())
+
+    let mut cmd = Command::new(&path);
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| {
-            SteamError::Other(format!(
-                "could not start steam-helper ({}): {e}",
-                path.display()
-            ))
-        })?;
+        .stderr(Stdio::null());
+
+    // steam-helper is a .NET console app. Spawned from the GUI (which has no
+    // console of its own in release), Windows would otherwise pop up a console
+    // window for it - very visible at first sign-in, and off-putting to users.
+    // CREATE_NO_WINDOW starts it hidden; the stdin/stdout JSON pipes are unaffected.
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let mut child = cmd.spawn().map_err(|e| {
+        SteamError::Other(format!(
+            "could not start steam-helper ({}): {e}",
+            path.display()
+        ))
+    })?;
 
     let stdin = child
         .stdin

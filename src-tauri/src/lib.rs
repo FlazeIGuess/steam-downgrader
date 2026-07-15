@@ -9,6 +9,7 @@ use steam::changelog::ChangelogEntry;
 use steam::downloader::DownloadResult;
 use steam::library::OwnedGame;
 use steam::resolver::{DepotManifest, ResolvedVersion};
+use steam::timeline::BuildTimeline;
 use tauri::AppHandle;
 
 // --- Changelog (public, no login) -------------------------------------------
@@ -27,6 +28,16 @@ async fn fetch_changelog(app_id: u32, count: Option<u32>) -> Result<Vec<Changelo
 #[tauri::command]
 async fn steam_appinfo(app: AppHandle, app_id: u32) -> Result<serde_json::Value, String> {
     steam::sidecar::request(&app, "appinfo", serde_json::json!({ "app_id": app_id }))
+        .await
+        .map_err(Into::into)
+}
+
+/// Dated build timeline for a game: the current public build plus every build
+/// still cached in Steam's depotcache, labelled with nearby patch notes. Lets
+/// the UI offer "pick an older build by date" without SteamDB.
+#[tauri::command]
+async fn steam_build_timeline(app: AppHandle, app_id: u32) -> Result<BuildTimeline, String> {
+    steam::timeline::build_timeline(&app, app_id)
         .await
         .map_err(Into::into)
 }
@@ -245,6 +256,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             fetch_changelog,
             steam_appinfo,
+            steam_build_timeline,
             steam_login,
             steam_login_qr,
             steam_provide_code,
