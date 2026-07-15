@@ -2,6 +2,14 @@
   <img src="src-tauri/icons/icon.png" alt="Steam Downgrader" width="120" />
   <h1>Steam Downgrader</h1>
   <p>Roll a Steam game back to an older version, and play it, even though Steam only ever installs the latest one.</p>
+  <p>
+    <a href="https://github.com/FlazeIGuess/steam-downgrader/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/FlazeIGuess/steam-downgrader?style=flat-square&labelColor=1c1c1c&color=454545" /></a>
+    <a href="https://github.com/FlazeIGuess/steam-downgrader/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/FlazeIGuess/steam-downgrader/total?style=flat-square&labelColor=1c1c1c&color=454545&label=downloads" /></a>
+    <a href="https://github.com/FlazeIGuess/steam-downgrader/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/FlazeIGuess/steam-downgrader/build.yml?style=flat-square&labelColor=1c1c1c&color=454545&label=build" /></a>
+    <a href="https://github.com/FlazeIGuess/steam-downgrader/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/FlazeIGuess/steam-downgrader?style=flat-square&labelColor=1c1c1c&color=454545" /></a>
+    <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-454545?style=flat-square&labelColor=1c1c1c" />
+    <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/FlazeIGuess/steam-downgrader?style=flat-square&labelColor=1c1c1c&color=454545" /></a>
+  </p>
 </div>
 
 ## What it does
