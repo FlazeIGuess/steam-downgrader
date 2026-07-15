@@ -1179,6 +1179,7 @@ function App() {
                   ["download-location", "Download location"],
                   ["owned-installed", "Owned vs installed"],
                   ["sign-in", "Signing in"],
+                  ["data-security", "Data & security"],
                   ["troubleshooting", "Troubleshooting"],
                 ].map(([key, label]) => (
                   <button key={key} className="docs-toc-link"
@@ -1328,6 +1329,33 @@ function App() {
                   <p>Sign in with a <strong>QR code</strong> (scan it in the Steam Mobile App, approve - no typing) or with
                     <strong> username &amp; password</strong>. Credentials go straight to Steam and are <strong>never stored
                     by this app</strong>. You can only download games your own account owns.</p>
+                </section>
+
+                <section id="docs-data-security" className="docs-sec">
+                  <h4>Data &amp; security</h4>
+                  <p>Steam Downgrader has <strong>no backend of its own</strong>. It collects no analytics, has no
+                    telemetry, and never sends anything about you or your usage to the developer or any third party.</p>
+                  <p>The only things that ever talk to the network are:</p>
+                  <ul className="docs-list">
+                    <li><strong>Steam's servers</strong>, through the official SteamKit2 library and the DepotDownloader
+                      engine, for signing in, reading your library, looking up builds, and downloading them.</li>
+                    <li><strong>GitHub</strong>, to check for and download app updates.</li>
+                    <li><strong>SteamDB</strong> is only ever opened as a normal link in your browser. The app never
+                      contacts or scrapes it.</li>
+                  </ul>
+                  <p>Your <strong>Steam login</strong> goes straight to Steam through SteamKit2. Your password is never
+                    stored and never sent anywhere except Steam. After sign-in, Steam issues a login token (a refresh
+                    token, not your password), cached locally in <code>account.config</code> so downloads do not ask you
+                    to sign in every time. Deleting that file removes the cached login.</p>
+                  <p>What is stored <strong>on your machine</strong>:</p>
+                  <ul className="docs-list">
+                    <li>The rollback library at <code>%APPDATA%\steam-downgrader\rollbacks.json</code> (games, builds,
+                      folder paths, applied status). It contains no credentials.</li>
+                    <li>The game builds you download, in the folder you choose.</li>
+                    <li>A small setting for your preferred download folder.</li>
+                  </ul>
+                  <p className="docs-note">You can remove all of it at any time by deleting the app, the
+                    <code>account.config</code> file, and the folders listed above.</p>
                 </section>
 
                 <section id="docs-troubleshooting" className="docs-sec">
@@ -1484,6 +1512,11 @@ function App() {
                 <button className="link-toggle" onClick={() => { setAuthMode("qr"); startQr(); }}>use QR code instead</button>
               </div>
             )}
+            <div className="login-transparency">
+              <span className="lt-badge">transparency</span>
+              <p>Your login goes straight to Steam through the official SteamKit2 library. Your password is never stored or sent anywhere except Steam, and this app has no server and no telemetry.</p>
+              <button className="lt-link" onClick={() => { closeLogin(); openDocs("data-security"); }}>how your data is handled</button>
+            </div>
           </div>
         </div>
       )}

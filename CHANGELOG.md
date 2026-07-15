@@ -3,6 +3,14 @@
 The section for a version tag is used as the release notes and shown in the
 in-app update window. Add a new "## vX.Y.Z" section at the top for each release.
 
+## v0.2.2
+
+Added
+
+- A transparency note on the sign-in screen, plus a new "Data and security" section
+  in the in-app help, explaining what talks to the network and what stays on your
+  machine.
+
 ## v0.2.1
 
 Changed

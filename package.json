@@ -1,7 +1,7 @@
 {
   "name": "steam-downgrader",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Roll a Steam game back to an earlier build",
   "license": "GPL-2.0-only",
   "type": "module",
