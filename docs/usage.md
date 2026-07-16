@@ -47,8 +47,13 @@ knows about and lists them by date, for the depot that matches your machine:
 Click "use this build" on any row to select it. The shortcut "Go back one build"
 selects the version right before the current update in one click.
 
-Only the current build and builds cached on your PC can be listed. Steam prunes the
-depotcache over time, so deep history may not appear.
+Only the current build and builds cached on your PC are listed by default. Steam prunes
+the depotcache over time, so deep history may not appear.
+
+Want more builds in this list without hunting for manifest numbers on SteamDB? Turn on the
+optional community version archive (see
+[Your data and privacy](privacy.md#community-version-archive-optional)) so builds that other
+players have found show up here too.
 
 ### Getting a build from SteamDB
 

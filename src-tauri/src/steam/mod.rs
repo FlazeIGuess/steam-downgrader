@@ -12,6 +12,7 @@
 #![allow(dead_code)]
 
 pub mod applier;
+pub mod archive;
 pub mod auth;
 pub mod changelog;
 pub mod downloader;

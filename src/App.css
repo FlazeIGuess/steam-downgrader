@@ -953,6 +953,15 @@ button {
   padding: 1px 5px;
   border-radius: var(--radius);
 }
+.build-src {
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-fg-faint);
+  border: 1px solid var(--color-line);
+  padding: 0 5px;
+  border-radius: var(--radius);
+}
 .build-patch {
   font-size: var(--text-xs);
   color: var(--color-fg-faint);
@@ -1554,6 +1563,40 @@ button {
 }
 .close-x:hover {
   color: var(--color-fg);
+}
+
+/* archive consent dialog */
+.modal--consent {
+  max-width: 460px;
+}
+.consent-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--color-fg-dim);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.consent-list li {
+  margin-bottom: var(--space-2);
+}
+.consent-list li::marker {
+  color: var(--color-fg-faint);
+}
+
+/* archive on/off toggle in the Data & security docs section */
+.archive-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-bg-3);
+  font-size: var(--text-sm);
+  color: var(--color-fg-dim);
 }
 
 /* confirm dialog */

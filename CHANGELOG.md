@@ -3,6 +3,26 @@
 The section for a version tag is used as the release notes and shown in the
 in-app update window. Add a new "## vX.Y.Z" section at the top for each release.
 
+## v0.3.0
+
+Added
+
+- Community version archive (optional, off by default). Turn it on and older builds
+  that other players have discovered appear in the dated build list too, marked
+  "from archive", so you can find and download versions by date without hunting for
+  manifest numbers on SteamDB.
+- A one-time prompt asks whether to join the archive when you first start the app.
+  You can turn it on or off at any time under Data and security in the built-in help.
+- Builds from the archive are labelled with the update they came before (from Steam's
+  public patch notes), the same as your local builds.
+
+Changed
+
+- When the archive is on, the app shares the build ids and dates it finds, both from
+  the games in your library and from builds you download, so the shared list keeps
+  growing. Only build ids and dates are ever sent, never your account, your login,
+  your files, or any personal data, and each build is sent only once per machine.
+
 ## v0.2.2
 
 Added

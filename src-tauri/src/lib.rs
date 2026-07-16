@@ -1,4 +1,5 @@
 mod rollback;
+mod settings;
 mod steam;
 
 use rollback::{AppliedInfo, RollbackEntry};
@@ -221,6 +222,39 @@ fn open_folder(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+// --- Settings / community archive opt-in ------------------------------------
+
+/// Current settings plus whether the archive consent dialog should be shown.
+#[tauri::command]
+fn get_settings() -> settings::SettingsView {
+    settings::view()
+}
+
+/// Record the user's choice for the community manifest archive (opt-in / out).
+#[tauri::command]
+fn set_archive_opt_in(opt_in: bool) -> Result<settings::SettingsView, String> {
+    settings::set_opt_in(opt_in)
+}
+
+/// Contribute manually entered / downloaded manifests to the archive (opt-in).
+/// Only the objective ids are sent; any label is stripped, so a user's custom
+/// version name is never shared - the archive only ever holds the original,
+/// patch-derived description.
+#[tauri::command]
+async fn archive_contribute(app_id: u32, depots: Vec<steam::archive::ArchiveManifest>) {
+    if !settings::opt_in_enabled() {
+        return;
+    }
+    let depots: Vec<steam::archive::ArchiveManifest> = depots
+        .into_iter()
+        .map(|mut d| {
+            d.label = None;
+            d
+        })
+        .collect();
+    steam::archive::contribute_new(app_id, env!("CARGO_PKG_VERSION"), &depots).await;
+}
+
 /// Open a URL in the default browser (e.g. a SteamDB depot page). This is only a
 /// link to a public page; the app never fetches or scrapes it.
 #[tauri::command]
@@ -275,6 +309,9 @@ pub fn run() {
             rollback_add,
             rollback_remove,
             rollback_set_applied,
+            get_settings,
+            set_archive_opt_in,
+            archive_contribute,
             open_folder,
             open_url,
             launch_build,

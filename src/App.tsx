@@ -79,6 +79,11 @@ interface BuildTimeline {
   depots: DepotTimeline[];
   patches: PatchEntry[];
 }
+interface SettingsView {
+  archive_opt_in: boolean | null;
+  needs_consent: boolean;
+  consent_version: number;
+}
 interface AppliedInfo { model: string; path: string; at: number; }
 interface RollbackEntry {
   id: string;
@@ -206,6 +211,10 @@ function App() {
   // App version (read at runtime from the Tauri config).
   const [appVersion, setAppVersion] = useState("");
 
+  // Community manifest archive opt-in (see Data & security in the docs).
+  const [archiveOptIn, setArchiveOptIn] = useState<boolean | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+
   // Docs / help
   const [docsOpen, setDocsOpen] = useState(false);
   const [docsSection, setDocsSection] = useState<string>("");
@@ -301,6 +310,13 @@ function App() {
   useEffect(() => { checkForUpdate(false); }, []);
   // Read the running app version once (for the sidebar footer).
   useEffect(() => { getVersion().then(setAppVersion).catch(() => { /* ignore */ }); }, []);
+  // Load settings; show the archive consent dialog when a decision is needed
+  // (first run, or after the consent policy changed).
+  useEffect(() => {
+    invoke<SettingsView>("get_settings")
+      .then((s) => { setArchiveOptIn(s.archive_opt_in); if (s.needs_consent) setConsentOpen(true); })
+      .catch(() => { /* ignore */ });
+  }, []);
   // Scroll the docs modal to a requested section.
   useEffect(() => {
     if (!docsOpen || !docsSection) return;
@@ -408,6 +424,14 @@ function App() {
   }
   function openFolder(path: string) { invoke("open_folder", { path }).catch((e) => setError(String(e))); }
   function openDocs(section?: string) { setDocsSection(section ?? ""); setDocsOpen(true); }
+  /** Record the community-archive opt-in choice (from the consent dialog or the docs toggle). */
+  async function decideArchive(optIn: boolean) {
+    try {
+      const s = await invoke<SettingsView>("set_archive_opt_in", { optIn });
+      setArchiveOptIn(s.archive_opt_in);
+    } catch (e) { setError(String(e)); }
+    setConsentOpen(false);
+  }
   /** Promise-based confirm dialog styled to match the app (replaces window.confirm). */
   function askConfirm(opts: { title?: string; message: string; confirmLabel?: string; danger?: boolean }): Promise<boolean> {
     return new Promise((resolve) => setConfirmState({
@@ -560,6 +584,12 @@ function App() {
         downloaded_at: Math.floor(Date.now() / 1000), applied: null,
       };
       setRollbacks(await invoke<RollbackEntry[]>("rollback_add", { entry }));
+      // Contribute the downloaded manifests to the archive (opt-in, gated in Rust).
+      // Only the ids are sent; the custom version name is never shared.
+      invoke("archive_contribute", {
+        appId: selected.appId,
+        depots: picked.map((d) => ({ depot_id: d.depot_id, manifest_id: d.manifest_id })),
+      }).catch(() => { /* best effort */ });
       setJustId(id); setStep(3);
       setLog((l) => [...l, `✓ saved to your versions: ${label}`]);
     }
@@ -736,6 +766,7 @@ function App() {
                       <div className="build-line">
                         <span className="build-date">{b.date_iso}</span>
                         {b.is_current && <span className="build-tag">current</span>}
+                        {b.source === "archive" && <span className="build-src" title="Discovered by another player through the community archive">from archive</span>}
                       </div>
                       {b.patch_title && !b.is_current && (
                         <div className="build-patch">the build before &ldquo;<em>{b.patch_title}</em>&rdquo;</div>
@@ -1342,6 +1373,7 @@ function App() {
                     <li><strong>GitHub</strong>, to check for and download app updates.</li>
                     <li><strong>SteamDB</strong> is only ever opened as a normal link in your browser. The app never
                       contacts or scrapes it.</li>
+                    <li>The <strong>community version archive</strong>, but only if you turn it on (off by default, see below).</li>
                   </ul>
                   <p>Your <strong>Steam login</strong> goes straight to Steam through SteamKit2. Your password is never
                     stored and never sent anywhere except Steam. After sign-in, Steam issues a login token (a refresh
@@ -1354,6 +1386,19 @@ function App() {
                     <li>The game builds you download, in the folder you choose.</li>
                     <li>A small setting for your preferred download folder.</li>
                   </ul>
+                  <p><strong>Community version archive (optional, off by default).</strong> On its own, the app
+                    only lists builds cached on your own PC; for older ones you would have to look up their
+                    manifest ids on SteamDB by hand. Turn this on and builds that other players have found
+                    appear in the dated list too, so you can pick them by date without hunting for manifest
+                    numbers. In exchange, the build ids your app finds are shared too. Only <strong>build ids
+                    and dates</strong> are ever shared, never your account, your login, your files, or any
+                    personal data, and no IP address is stored. With it off, nothing is sent or fetched.</p>
+                  <div className="archive-toggle">
+                    <span>Community version archive is <strong>{archiveOptIn ? "on" : "off"}</strong>.</span>
+                    <button className="btn btn--sm" onClick={() => decideArchive(!archiveOptIn)}>
+                      {archiveOptIn ? "turn off" : "turn on"}
+                    </button>
+                  </div>
                   <p className="docs-note">You can remove all of it at any time by deleting the app, the
                     <code>account.config</code> file, and the folders listed above.</p>
                 </section>
@@ -1446,6 +1491,34 @@ function App() {
         </div>
       )}
 
+      {/* ---------- Archive consent dialog (opt-in, first run / policy change) ---------- */}
+      {consentOpen && (
+        <div className="modal-overlay" onClick={() => decideArchive(false)}>
+          <div className="modal modal--consent" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>more builds, no manifest hunting</h3>
+            </div>
+            <div className="modal-body">
+              <p className="modal-note">
+                On its own, the app only lists builds cached on your own PC. For anything older you would
+                have to look up its manifest id on SteamDB by hand. Turn on the community version archive
+                and builds that other players have found show up in the dated list too, so you can just
+                pick them by date, no manifest numbers to copy.
+              </p>
+              <ul className="consent-list">
+                <li>It works both ways: the build ids your app finds are added too, so the list keeps growing for everyone.</li>
+                <li>Only <strong>build ids and dates</strong> are shared. Never your account, your login, your files, or any personal data.</li>
+                <li>Optional and off by default. You can turn it off anytime under <strong>docs, Data &amp; security</strong>.</li>
+              </ul>
+              <div className="confirm-actions">
+                <button className="btn" onClick={() => decideArchive(false)}>not now</button>
+                <button className="btn btn--primary" onClick={() => decideArchive(true)}>turn on</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---------- Confirm dialog ---------- */}
       {confirmState && (
         <div className="modal-overlay" onClick={() => closeConfirm(false)}>
@@ -1514,7 +1587,7 @@ function App() {
             )}
             <div className="login-transparency">
               <span className="lt-badge">transparency</span>
-              <p>Your login goes straight to Steam through the official SteamKit2 library. Your password is never stored or sent anywhere except Steam, and this app has no server and no telemetry.</p>
+              <p>Your login goes straight to Steam through the official SteamKit2 library. Your password is never stored or sent anywhere except Steam. The app has no telemetry; the optional version archive only ever shares build ids, never your account or files.</p>
               <button className="lt-link" onClick={() => { closeLogin(); openDocs("data-security"); }}>how your data is handled</button>
             </div>
           </div>

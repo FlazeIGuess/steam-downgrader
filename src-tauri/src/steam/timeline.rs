@@ -13,7 +13,7 @@
 use serde::Serialize;
 use tauri::AppHandle;
 
-use super::{applier, changelog, sidecar, SteamError};
+use super::{applier, archive, changelog, sidecar, SteamError};
 
 /// One build of one depot, dated and optionally labelled with a patch note.
 #[derive(Debug, Clone, Serialize)]
@@ -86,6 +86,7 @@ fn next_patch_after<'a>(patches: &'a [PatchEntry], ts: i64) -> Option<&'a str> {
 fn assemble(
     current: Option<(String, i64)>,
     cached: &[(String, i64)],
+    archive: &[(String, i64)],
     patches: &[PatchEntry],
 ) -> Vec<BuildEntry> {
     let mut seen = std::collections::HashSet::new();
@@ -113,6 +114,20 @@ fn assemble(
             date_iso: iso(*ts),
             is_current: false,
             source: "depotcache".into(),
+            patch_title: next_patch_after(patches, *ts).map(str::to_string),
+        });
+    }
+
+    for (mid, ts) in archive {
+        if !seen.insert(mid.clone()) {
+            continue; // already known from PICS or the local cache
+        }
+        builds.push(BuildEntry {
+            manifest_id: mid.clone(),
+            timestamp: *ts,
+            date_iso: iso(*ts),
+            is_current: false,
+            source: "archive".into(),
             patch_title: next_patch_after(patches, *ts).map(str::to_string),
         });
     }
@@ -188,7 +203,8 @@ pub async fn build_timeline(app: &AppHandle, app_id: u32) -> Result<BuildTimelin
         }
     }
 
-    // 3. Patch notes (best effort; used only to label builds).
+    // 3. Patch notes (best effort; used to label builds locally, and as the
+    // objective label we contribute to the archive).
     let patches: Vec<PatchEntry> = changelog::fetch(app_id, 40, &["steam_community_announcements"])
         .await
         .unwrap_or_default()
@@ -201,6 +217,48 @@ pub async fn build_timeline(app: &AppHandle, app_id: u32) -> Result<BuildTimelin
         })
         .collect();
 
+    // 3b. Community manifest archive (opt-in). Contribute every manifest we found
+    // (with the objective, patch-derived label - never a user's custom name) and
+    // fetch what others reported, so the picker can show builds that never touched
+    // this machine's depotcache.
+    let mut archive_by_depot: std::collections::HashMap<u32, Vec<(String, i64)>> =
+        std::collections::HashMap::new();
+    if crate::settings::opt_in_enabled() {
+        let mut discovered: Vec<archive::ArchiveManifest> = Vec::new();
+        for (depot_id, mid) in &current {
+            discovered.push(archive::ArchiveManifest {
+                depot_id: *depot_id,
+                manifest_id: mid.clone(),
+                build_id: current_build_id,
+                timestamp: Some(current_ts),
+                label: next_patch_after(&patches, current_ts).map(str::to_string),
+            });
+        }
+        for (depot_id, list) in &cached {
+            for (mid, ts) in list {
+                discovered.push(archive::ArchiveManifest {
+                    depot_id: *depot_id,
+                    manifest_id: mid.clone(),
+                    build_id: None,
+                    timestamp: Some(*ts),
+                    label: next_patch_after(&patches, *ts).map(str::to_string),
+                });
+            }
+        }
+        // Contribute in the background so it never delays the timeline. Only
+        // manifests not already sent from this machine actually leave.
+        tokio::spawn(async move {
+            archive::contribute_new(app_id, env!("CARGO_PKG_VERSION"), &discovered).await
+        });
+
+        for m in archive::fetch(app_id).await {
+            archive_by_depot
+                .entry(m.depot_id)
+                .or_default()
+                .push((m.manifest_id, m.timestamp.unwrap_or(0)));
+        }
+    }
+
     // 4. Assemble one timeline per depot.
     let empty: Vec<(String, i64)> = Vec::new();
     let depots: Vec<DepotTimeline> = depot_ids
@@ -208,9 +266,10 @@ pub async fn build_timeline(app: &AppHandle, app_id: u32) -> Result<BuildTimelin
         .map(|depot_id| {
             let cur = current.get(depot_id).map(|m| (m.clone(), current_ts));
             let hist = cached.get(depot_id).unwrap_or(&empty);
+            let arch = archive_by_depot.get(depot_id).unwrap_or(&empty);
             DepotTimeline {
                 depot_id: *depot_id,
-                builds: assemble(cur, hist, &patches),
+                builds: assemble(cur, hist, arch, &patches),
             }
         })
         .collect();
@@ -257,7 +316,7 @@ mod tests {
             ("a".to_string(), 100 * DAY),
             ("b".to_string(), 200 * DAY),
         ];
-        let builds = assemble(current, &cached, &[]);
+        let builds = assemble(current, &cached, &[], &[]);
         assert_eq!(builds.len(), 3);
         assert!(builds[0].is_current);
         assert_eq!(builds[0].manifest_id, "cur");
@@ -271,7 +330,7 @@ mod tests {
         // and keep the is_current flag / PICS timestamp.
         let current = Some(("same".to_string(), 300 * DAY));
         let cached = vec![("same".to_string(), 299 * DAY), ("old".to_string(), 100 * DAY)];
-        let builds = assemble(current, &cached, &[]);
+        let builds = assemble(current, &cached, &[], &[]);
         assert_eq!(builds.len(), 2);
         assert_eq!(builds[0].manifest_id, "same");
         assert!(builds[0].is_current);
@@ -283,7 +342,7 @@ mod tests {
     fn dedupes_repeated_cache_entries() {
         // The same manifest can live in several depotcache folders.
         let cached = vec![("x".to_string(), 100 * DAY), ("x".to_string(), 100 * DAY)];
-        let builds = assemble(None, &cached, &[]);
+        let builds = assemble(None, &cached, &[], &[]);
         assert_eq!(builds.len(), 1);
     }
 }
